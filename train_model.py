@@ -5,6 +5,7 @@ import pickle
 from sklearn.preprocessing import LabelEncoder
 from sklearn.svm import SVC
 from keras_facenet import FaceNet
+from mtcnn import MTCNN
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
@@ -16,23 +17,32 @@ class FaceTrainer:
         self.X = []
         self.y = []
         self.facenet = FaceNet()
-        self.haarcascade = cv.CascadeClassifier("haarcascade_frontalface_default.xml")
+        self.detector = MTCNN()
+        print("✓ Detector MTCNN inicializado")
 
     def extract_face(self, filename):
-        """Extrae y redimensiona el rostro de una imagen"""
+        """Extrae y redimensiona el rostro de una imagen usando MTCNN"""
         img = cv.imread(filename)
         if img is None:
             return None
 
         img = cv.cvtColor(img, cv.COLOR_BGR2RGB)
-        gray = cv.cvtColor(img, cv.COLOR_RGB2GRAY)
-        faces = self.haarcascade.detectMultiScale(gray, 1.3, 5)
 
-        if len(faces) == 0:
+        # Detectar rostros con MTCNN
+        try:
+            results = self.detector.detect_faces(img)
+        except Exception as e:
             return None
 
-        x, y, w, h = faces[0]
+        if len(results) == 0:
+            return None
+
+        # Obtener el rostro con mayor confianza
+        result = results[0]
+        x, y, w, h = result['box']
         x, y = abs(x), abs(y)
+
+        # Extraer región del rostro
         face = img[y:y + h, x:x + w]
         face_arr = cv.resize(face, self.target_size)
         return face_arr
